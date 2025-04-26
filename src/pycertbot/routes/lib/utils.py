@@ -22,7 +22,7 @@ Config = session.OWTConfig
 locale.setlocale(locale.LC_ALL, 'en_US')
 
 # Session information
-pass_session = click.make_pass_decorator(session.OWTSession)
+# pass_session = click.make_pass_decorator(session.OWTSession)
 
 def banner(verbose=False):
 	"""Prints the Banner for the CLI Tool.
@@ -47,6 +47,13 @@ def b64decode(data):
     if not data:
         return None
     return _b64decode(data).decode('utf-8')
+
+def has_token(session):
+	token = session.config_get(Config.TOKEN)
+	has_token = True if token != None else False
+	if not has_token:
+		click.echo("Please login to access cloud services.")
+	return has_token
 
 def get_registration_token(email=None, nonce=None):
     """Generates a Registration Token for the given email address.
@@ -80,34 +87,7 @@ def get_registration_token(email=None, nonce=None):
     # returns the B64 encoded data
     return b64_token, b64_nonce
 
-def dns_resolve(domain : str = None, record_type : str = 'MX'):
-    """Resolves a DNS Record for a given domain.
-
-    Args:
-        domain (str): Domain Name
-        record_type (str): Record Type
-
-    Returns:
-        list: List of DNS Records
-    """
-    ret_list = []
-    # Resolves the DNS Record
-    for x in dns.resolve(domain, record_type):
-        # Extracts the SMTP Host
-        if x and x.to_text() != "":
-            smtp_host = x.to_text().split(' ')[1][:-1]
-            ret_list.append(smtp_host)
-    # Returns the list of records
-    return ret_list
-
-def has_token(session):
-	token = session.config_get(Config.TOKEN)
-	has_token = True if token != None else False
-	if not has_token:
-		click.echo("Please login to access cloud services.")
-	return has_token
-
-def currencyPriceUnits(priceUnits):
+def currencyUnits(priceUnits):
 	price = float(priceUnits)
 	return_value = "0.0"
 	if (price < 0):
@@ -129,3 +109,23 @@ def largeNumber(value):
 
 def formatNumber(value):
 	return "{:,.0f}".format(value)
+
+def dns_resolve(domain : str = None, record_type : str = 'MX'):
+    """Resolves a DNS Record for a given domain.
+
+    Args:
+        domain (str): Domain Name
+        record_type (str): Record Type
+
+    Returns:
+        list: List of DNS Records
+    """
+    ret_list = []
+    # Resolves the DNS Record
+    for x in dns.resolve(domain, record_type):
+        # Extracts the SMTP Host
+        if x and x.to_text() != "":
+            smtp_host = x.to_text().split(' ')[1][:-1]
+            ret_list.append(smtp_host)
+    # Returns the list of records
+    return ret_list
