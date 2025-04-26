@@ -1,0 +1,38 @@
+# ChangeLog for PyCertbot
+
+This document maintains a chronologically ordered list of notable changes to the PyCertbot project.
+
+The version format is based on release date and is structured as follows: `YYYY.MM.DD-REL`.
+
+## [Unreleased]
+
+- Initial planning and design phase.
+- Identified client-side integration via SMTP and IMAP protocols.
+- Devised a new privacy-preserving registration protocol.
+- First implementation of the PyCertbot API (server)
+
+## [2024.04.17-0]
+
+### Added
+- Initial release of PyCertbot.
+- Features include:
+  - Support for standard SMTP and IMAP protocols.
+  - Provides a scriptable interface for automation.
+  - Integration with existing email infrastructure in a non-disruptive manner.
+  - Comprehensive documentation on usage and configuration.
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- Implemented basic security features to ensure safe use of TLS for communication.
+

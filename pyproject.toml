@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pycertbot"
+version = "2024.04.17-1"
+requires-python = ">=3.6"
+description = "Open Web Trust certbot client for Email certificates"
+authors = [ {'name' = 'Open Web Trust', 'email' = 'support@openwebtrust.org' } ]
+maintainers = [ {'name' = 'Open Web Trust', 'email' = 'support@openwebtrust.org' } ]
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["certbot", "email", "certificate", "pki", "openwebtrust"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Communications :: Email",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities"
+
+]
+dependencies = [
+    'click',
+    'requests',
+    'tabulate',
+    'InquirerPy',
+    'python-dotenv',
+    'requests_toolbelt',
+    'pyasn1_modules',
+    'pycryptodome',
+    'dnspython',
+    'imap-tools',
+    'regex',
+    'uuid'
+]
+
+[project.scripts]
+pycertbot = "pycertbot.pycertbot:__start__"
+
+[project.urls]
+Homepage = "https://www.openwebtrust.org"
+Documentation = "https://openwebtrust.org"
+Repository = "https://github.com/openwebtrust/pycertbot"
+Issues = "https://github.com/openwebtrust/pycertbot/issues"
+ChangeLog = "https://github.com/openwebtrust/pycertbot/blob/main/ChangeLog.md"
