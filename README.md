@@ -10,40 +10,61 @@ This is a Python Certificate Manager for the Open Web Trust Community. It is a s
 To install the certificate manager, you need to have Python 3.6 or higher installed on your system. You can install the certificate manager using pip:
 
 ```bash
+python3 -m venv .venv
+. .venv/bin/activate
 pip install .
 ```
 
 For development installation, you might want to use an editable install. Use the `-e` flag for development:
 
 ```
-pip install -e pycertbot
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e .
 ```
 
 ## Usage
 
-To use the certificate manager, you need to run the `certbot` command in your terminal. The command has the following syntax:
+The `pycertbot` tool provides a variety of commands to manage certificates and accounts. The main
+script to use is the `pycertbot` command. You can run it from the command line as follows:
 
 ```bash
 pycertbot [command] [options]
 ```
+You can replace `[command]` with any of the available commands and `[options]` with the
+appropriate options for that command.
 
-The following commands are available:
+Below is a list of the available commands, options, and their descriptions:
 
-- `create`: Create a new certificate
-- `register`: Register a new account
-- `login`: Log in to an existing account
-- `logout`: Log out of the current account
-- `delete`: Delete an existing account
-- `renew`: Renew an existing certificate
-- `list`: List all certificates
-- `show`: Show details of a certificate
-- `help`: Show help information
-- `config`: Show configuration information
-- `import`: Import a certificate
-- `export`: Export a certificate
-- `install`: Install a certificate
-- `check`: Check the status of a certificate
-- `verify`: Verify the status of a certificate
+### Certificate Management (pycertbot.py cert [OPTIONS])
+- **`create`**: Generate a new certificate.
+- **`renew`**: Renew an existing certificate.
+- **`list`**: Display a list of all certificates.
+- **`show`**: View detailed information about a specific certificate.
+- **`import`**: Import an existing certificate into the system.
+- **`export`**: Export a certificate for external use.
+- **`install`**: Install a certificate on the system.
+- **`check`**: Check the status of a certificate.
+- **`verify`**: Verify the validity of a certificate.
+
+### Account Management (pycertbot.py my [OPTIONS])
+- **`register`**: Register a new account with the certificate manager.
+- **`login`**: Log in to an existing account.
+- **`logout`**: Log out of the current account.
+- **`delete`**: Remove an existing account from the system.
+
+### Configuration Management (pycertbot.py config [OPTIONS])
+- **`set`**: Set a specific configuration option.
+- **`get`**: Retrieve the value of a configuration option.
+
+### Help and Support
+- **`help`**: Display help information for the tool or specific commands.
+
+For more details on how to use a specific command, run:
+
+```bash
+pycertbot [command] --help
+```
 
 For more information on how to use the certificate manager, run the `certbot help` command.
 
