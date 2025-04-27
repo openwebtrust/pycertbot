@@ -37,7 +37,7 @@ def send_msg(session,
             # Look for the domain in the email address
             domain = from_addr.split('@')[1]
         # Get the hostname
-        host = dns.dns_resolve(domain)[0]
+        host = dns.resolve(domain)[0]
         
     port = session.config_get("smtp_port")
     user = session.config_get("smtp_user")

@@ -245,7 +245,7 @@ def register(session, url : str, email : str, smtp_user: str, smtp_pwd : str, se
             smtp_domain = email.split('@')[1]
             session.config_set("smtp_domain", smtp_domain)
         # Resolves the domain
-        smtp_host = dns.dns_resolve(smtp_domain)[0]
+        smtp_host = dns.resolve(smtp_domain)[0]
         
     # Let's send the email
     email_tools.send_msg(session,

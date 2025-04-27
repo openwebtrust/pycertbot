@@ -22,30 +22,7 @@ __all__ = [
     'resolve'
 ]
 
-def currencyUnits(priceUnits):
-	price = float(priceUnits)
-	return_value = "0.0"
-	if (price < 0):
-		return locale.currency(price, grouping=True)
-	return_value = price / 100
-	return locale.currency(return_value, grouping=True)
-
-def largeNumber(value):
-	temp_val = value
-	selected_symbol = ""
-	symbols = [ "", "K", "M", "G", "T", "P" ]
-	for letter in symbols:
-		if temp_val < 1000:
-			selected_symbol = letter
-			break
-		temp_val = temp_val / 1000
-
-	return f'{temp_val}{selected_symbol}'
-
-def formatNumber(value):
-	return "{:,.0f}".format(value)
-
-def dns_resolve(domain : str = None, record_type : str = 'MX'):
+def resolve(domain : str = None, record_type : str = 'MX'):
     """Resolves a DNS Record for a given domain.
 
     Args:
