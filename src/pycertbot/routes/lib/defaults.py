@@ -13,6 +13,6 @@ OWT_CONFIG = {
     "API_VERSION": 1,
     "BASE_API_URL": "api/",
     "SCHEMA_DEFAULT": "https",
-    "PORT_DEFAULT": 8000,
+    "PORT_DEFAULT": 443,
     "URL_DEFAULT": "pycertbot.openwebtrust.org",
 }
