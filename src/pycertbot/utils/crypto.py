@@ -12,7 +12,7 @@ from Crypto.Hash import SHA256, SHA512, SHA3_512, SHA3_256, SHAKE256
 from Crypto.Protocol import KDF
 
 from base64 import urlsafe_b64encode as b64encode, urlsafe_b64decode as b64decode
-from pycertbot.utils.logging import OWT_debug_print
+from pycertbot.utils.logging import OWT_log_msg
 
 # Master Secret
 MasterSecret = None
@@ -81,7 +81,7 @@ def owt_master_secret_is_set() -> bool:
 	"""
 	return bool(MasterSecret)
 
-def OWT_kdf_bcrypt_derive(secret, domain, len=32, cost : int = 24):
+def OWT_kdf_bcrypt_derive(secret, domain, len=32, cost : int = 12):
     """Derives a key from the secret using HKDF
     This function uses bcrypt to derive the key and SHA3_512 to generate the final key.
     The domain is used to derive the key and is set to 'OpenWebTrust2025' by default.
@@ -90,12 +90,17 @@ def OWT_kdf_bcrypt_derive(secret, domain, len=32, cost : int = 24):
     
     The function raises a ValueError if the length is greater than 64 bytes.
     The function returns the derived key.
+    
+    Note: The cost factor for bcrypt is set to 12 by default, any increase in the cost
+    factor will increase the time it takes to derive the key significantly even for small
+    changes of the value. If the derivation time is too long, consider using a lower cost
+    factor. The suggested minimum is 12 (default is 12).
 
     Args:
         secret (bytes): The secret to derive the key from.
         domain (bytes): The domain to use for key derivation.
         len (int, optional): The length of the derived key. Defaults to 32.
-        cost (int, optional): The cost factor for bcrypt. Suggested min is 12 (def. 24).
+        cost (int, optional): The cost factor for bcrypt. Suggested min is 12 (def. 12).
         
     Raises:
         ValueError: If the length is greater than 64 bytes.
@@ -218,7 +223,7 @@ class JSONSec():
 		"""
 		# Only one between data and enc data can be passed
         if (data and enc_data) or ((data or enc_data) and enc_json):
-            raise ValueError("Only one between data and enc_data can be passed")
+            OWT_log_msg(f"ERROR: Only one between data and enc_data can be passed", is_error=True, raise_exception=True)
         
 		# Sets the data and secret
         self.__secret__ = secret
@@ -236,14 +241,11 @@ class JSONSec():
         if enc_json is not None:
             try:
 
-                OWT_debug_print(f"DEBUG: enc_json: {enc_json}")
                 # Parses the JSON data if the input is a string
                 parsed_enc_json = enc_json
                 if isinstance(enc_json, str):
                     parsed_enc_json = json.loads(enc_json)
         
-                OWT_debug_print(f"DEBUG: parsed_enc_json: {parsed_enc_json}")
-                
                 # Gets the values from the JSON data
                 self.__algorithm__ = parsed_enc_json.get('algorithm', ALG_AES)
                 self.__mode__ = parsed_enc_json.get('encryption-mode', AES.MODE_GCM)
@@ -280,8 +282,6 @@ class JSONSec():
                 print(f"Error: Cannot decode the encrypted JSON: {e}")
                 raise ValueError(f"Invalid JSON: {e}")
 
-        OWT_debug_print(f"Init Progressing...")
-
 		# If no IV is passed, we generate a random one
         if not self.__iv__:
             # AES Encryption
@@ -302,27 +302,20 @@ class JSONSec():
             elif self.__algorithm__ == ALG_CHACHA_POLY:
                 self.__nonce__ = OWT_random_bytes(12)
 
-        OWT_debug_print(f"Init Progressing...")
-
         # Encrypts the data, if any was passed
         if data is not None:
             self.__enc_data__ = self._encrypt(data)
         
-        OWT_debug_print(f"Init Successful.")
-        
     
-    def _hkdf(self, secret, len=32):
+    def _hkdf(self, secret, len=32, cost=12):
         # Use the general HKDF function with set domain for derivation
-        return OWT_kdf_bcrypt_derive(secret, b'OpenWebTrust2025', len)
+        return OWT_kdf_bcrypt_derive(secret, b'OpenWebTrust2025', len, cost)
 
     
     def _encrypt(self, data):
-
-        print(f"******** Encrypting Data: {data} ***********")
         
         if not self.__secret__ or not data:
-            print(f"Secret ({self.__secret__} not Set or Data ({data}) not provided")
-            raise Exception("Secret not Set or Data not provided")
+            OWT_log_msg(f"Secret ({self.__secret__} not Set or Data ({data}) not provided", is_error=True, raise_exception=True)
 
         keylength = 32
         if self.__mode__ == AES.MODE_SIV:
@@ -344,18 +337,16 @@ class JSONSec():
                 AESEncryption = AES.new(enc_key, AES.MODE_CBC, self.__iv__)
                 self.__enc_data__ = AESEncryption.encrypt(str.encode(json.dumps(data)))
             else:
-                raise Exception(f"Invalid Mode: {self.__mode__}")
+                OWT_log_msg(f"Invalid Mode: {self.__mode__}", is_error=True, raise_exception=True)
 
         elif self.__algorithm__ == ALG_CHACHA_POLY:
             # Let's get a nonce
-            ChaCha20Poly1305Encryption = ChaCha20_Poly1305.new(key=self.__secret__, 
-                                                               nonce=self.__nonce__)
+            ChaCha20Poly1305Encryption = ChaCha20_Poly1305.new(key=enc_key, nonce=self.__nonce__)
             self.__enc_data__ = ChaCha20Poly1305Encryption.encrypt(json.dumps(data))
         else:
-            raise Exception("Invalid Algorithm")
+            OWT_log_msg(f"Invalid Algorithm: {self.__algorithm__}", is_error=True, raise_exception=True)
         
-        print(f"******** Encrypted Data: {self.__enc_data__}, Tag: {self.__tag__}, Nonce: {self.__nonce__}, IV: {self.__iv__}")
-        
+        # Returns the encrypted data
         return self.__enc_data__
 
 
@@ -365,12 +356,23 @@ class JSONSec():
         data = None
         
         # Checks if the secret is set
-        if not self.__secret__ or not self.__enc_data__:
-            raise Exception("Secret not Set or No Encrypted Data set")
-
+        if not self.__enc_data__:
+            OWT_log_msg(f"ERROR: No data (None: {self.__enc_data__ is None}) to decrypt", is_error=True, raise_exception=True)
+        
+        if not self.__secret__:
+            if owt_master_secret_is_set():
+                self.__secret__ = MasterSecret
+                OWT_log_msg(f"Using Master Secret for decryption.", is_error=True)
+            else:
+                OWT_log_msg(f"No Secret set for encryption, aborting.", is_error=True, raise_exception=True)
+            
+        # Sets up the encryption key
         keylength = 32
         if self.__mode__ == AES.MODE_SIV:
             keylength = 64
+            
+        # Derives the key from the secret. Note that bcrypt can take
+        # a long time when the cost is set to values greater than 12)
         enc_key = self._hkdf(self.__secret__, keylength)
         
         # Encryption Algorithm(s): AES, ChaCha20_Poly1305
@@ -392,24 +394,22 @@ class JSONSec():
                         AESDecryption = AES.new(enc_key, AES.MODE_CBC, iv=self.__iv__, use_aesni=True)
                         data = AESDecryption.decrypt(self.__enc_data__)
                     case _:
-                        raise Exception(f"Invalid Mode: {self.__mode__}")
+                        OWT_log_msg(f"Invalid Mode: {self.__mode__}", is_error=True, raise_exception=True)
                 
             except Exception as e:
-                print(f"Error: Cannot decrypt the data: {e}")
-                raise Exception(f"Invalid Data: {e}")
+                OWT_log_msg(f"Cannot decrypt the data: {e}", is_error=True, raise_exception=True)
     
         elif self.__algorithm__ == ALG_CHACHA_POLY:
             ChaCha20Poly1305Decryption = ChaCha20_Poly1305.new(key=self.__secret__, nonce=self.__nonce__)
             data = ChaCha20Poly1305Decryption.decrypt(self.__enc_data__)
 
         else:
-            raise Exception("Invalid Algorithm")
+            OWT_log_msg(f"Invalid Algorithm: {self.__algorithm__}", is_error=True, raise_exception=True)
 
         try:
             return_value = json.loads(data)
         except Exception as e:
-            print(f"Error: Cannot decode the decrypted data: {e}")
-            raise Exception(f"Invalid Data: {e}")
+            OWT_log_msg(f"Cannot decode the decrypted data: {e}", is_error=True, raise_exception=True)
        
         return return_value
     
@@ -484,13 +484,17 @@ class JSONSec():
             return self._decrypt()
         
         # Error condition or no data
-        click.echo("ERROR: No data to decrypt", err=True, color=True)
+        OWT_log_msg("No data to decrypt in JSONSec object", is_error=True)
         return None
 
     @data.setter
     def data(self, value):
-        self.__data__ = value
-        self._encrypt(self)
+        
+        # Debugging Info
+        OWT_log_msg("Setting JSONSec data property", is_error=False, is_debug=True)
+
+        # encrypts the value and stores it encrypted in JSONSec object        
+        self._encrypt(value)
         
         # Let's return the output of the internal getter enc_json
         return self.enc_json
