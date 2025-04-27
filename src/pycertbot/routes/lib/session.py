@@ -1,72 +1,109 @@
 # Description: OWT Session Object
 import errno
-from pprint import pprint
 import sys
 import os
 import click
 import json
 import requests
-
 import time
 
+from pprint import pprint
 from pathlib import Path
 from enum import Enum
 
 from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
 
-from .crypto import JSONSec, owt_master_secret_is_set, owt_set_master_secret
-from .defaults import APP_ROUTES
+from pycertbot.routes.lib.crypto import JSONSec, owt_master_secret_is_set, owt_set_master_secret
+from pycertbot.routes.lib.defaults import APP_ROUTES, OWT_CONFIG
 
-class OWTConfig(Enum):
-    API_VERSION = 1
-    BASE_API_URL = "api/"
-    # SCHEMA_DEFAULT = "https"
-    SCHEMA_DEFAULT = "https"
-    # PORT_DEFAULT = 8000
-    PORT_DEFAULT = 8000
-    # URL_DEFAULT = "pycertbot.openwebtrust.org"
-    URL_DEFAULT = "127.0.0.1"
+# Exports
+__all__ = [
+    'OWTSession',
+]
 
 class OWTSession:
     """OWT Session Object."""
     def __init__(self):
         home = str(Path.home())
-        self.base_api_url = OWTConfig.SCHEMA_DEFAULT.value + "://" + \
-            OWTConfig.URL_DEFAULT.value + ":" + str(OWTConfig.PORT_DEFAULT.value) + \
-            OWTConfig.BASE_API_URL.value + "v" + str(OWTConfig.API_VERSION.value) + "/"
+        self.base_api_url = OWT_CONFIG.get('SCHEMA_DEFAULT', 'https') + "://" + \
+            OWT_CONFIG.get('URL_DEFAULT', 'localhost') + ":" + str(OWT_CONFIG.get('PORT_DEFAULT', 443)) + \
+            OWT_CONFIG.get('BASE_API_URL','') + "v" + str(OWT_CONFIG.get('API_VERSION', 1)) + "/"
         self.config_path = os.path.join(home, ".pycertbot/config.json")
         self.download_path = os.path.join(home, "Downloads")
-        self.config = {
-            'default' : {}
-        }
+        self.config = { "version": 1,
+                        "download_path": self.download_path,
+                        "base_api_url": self.base_api_url,
+                        "host": OWT_CONFIG.get('URL_DEFAULT', 'localhost'),
+                        "port": OWT_CONFIG.get('PORT_DEFAULT', 443),
+                        "scheme": OWT_CONFIG.get('SCHEMA_DEFAULT', 'https'),
+                        # "smtp_url": None,
+                        # "smtp_user": None,
+                        # "smtp_pwd": None,
+                        # "smtp_domain": None,
+                        # "smtp_from": None,
+                        # "smtp_to": None,
+                        # "imap_url": None,
+                        # "imap_user": None,
+                        # "imap_pwd": None,
+                        # "imap_domain": None,
+                        }
+        
         self.verbose = False
 
         if (os.path.isfile(self.config_path)):
             try:
-                f = open(self.config_path, "r")
-                enc_config_json = f.read()
+                
                 # Checks for the master secret, if not there, let's ask for it
                 if not owt_master_secret_is_set():
                     secret = click.prompt("Enter the master secret", type=str, hide_input=True)
                     owt_set_master_secret(secret)
                     if not secret:
                         raise Exception("Secret or Data not set")
-            
-                config_json = JSONSec(enc_data = enc_config_json).data
-                self.config = json.loads(config_json)
-                self.base_api_url = self.config["url"]
+
             except:
                 pass
+            
+            try:
+                enc_config_json = None
+                with open(self.config_path, "r") as f:
+                    enc_config_json = f.read()
+                    f.close()
+                
+                # Sets the configuration data
+                self.config = JSONSec(enc_json=enc_config_json).data                
+                if not self.config:
+                    raise Exception("ERROR: No data found in config file (OWTSession::__init__).")
+                
+            except(OSError, IOError):
+                click.echo(f"Unable to read config file: {self.config_path}")    
 
+            except(Exception) as e:
+                click.echo(f"Exception while parsing or decrypt config file: {e}")
+                
                     # ===============
                     # Private Methods
                     # ===============
 
     def _owt_config_full_url(self, route):
+        """Returns the full API URL for the given route.
+        The URL is built using the base API URL and the route provided.
+        The base API URL is retrieved from the configuration file.
+        The route is appended to the base API URL to form the full URL.
+        The trailing slash is removed from the base API URL and the leading slash is added to the route if not present.
+
+        Args:
+            route: The route to be appended to the base API URL.
+
+        Raises:
+            Exception: If no value is found for the base API URL.
+
+        Returns:
+            str: The full API URL.
+        """
         
         # Gets the base API URL
         base_api_url = self.config_url()
-        if base_api_url == None:
+        if base_api_url is None:
             raise Exception("No value found for base API URL")
         
         # let's remove the trailing slash
@@ -81,10 +118,29 @@ class OWTSession:
         return f"{base_api_url}{route}"
 
     def _owt_headers(self, include_auth=True):
+        """Returns the headers for the API request.
+        
+        Returns the headers for the API request and includes the content type and
+        authorization token if provided. The content type is set to application/json.
+        If the include_auth parameter is set to True, the authorization token is
+        included in the headers. If the token is not found in the configuration file,
+        a warning message is printed. The headers are returned as a dictionary.
+        
+        Args:
+            include_auth (bool): If True, include the authorization token in the headers.
+               If False, do not include the authorization token.
+               
+        Raises:
+            Exception: If no value is found for the authorization token.
+            
+        Returns:
+            dict: The headers for the API request.
+        """
+        
         headers = {"Content-Type": "application/json"}
         token = self.config.get("token")
         
-        if include_auth == True:
+        if include_auth is True:
             if not token:
                 print("\n    WARNING: No token found in config file.\n")
             else:
@@ -93,7 +149,20 @@ class OWTSession:
         return headers
 
     def _owt_req_inputs(self, route, body=None, include_auth=True):
-        
+        """Returns the full URL, headers, and data for the API request.
+
+        Args:
+            route (str): The route to be appended to the base API URL.
+            body (dict, optional): The body of the request. Defaults to None.
+            include_auth (bool, optional): Whether to include authorization headers. Defaults to True.
+
+        Raises:
+            Exception: If no value is found for the full URL.
+            Exception: If no value returned for headers.
+
+        Returns:
+            tuple: A tuple containing the full URL, headers, and data for the API request.
+        """
         full_url = self._owt_config_full_url(route)
         if not full_url:
             raise Exception("No value found for full URL")
@@ -124,15 +193,19 @@ class OWTSession:
             if not secret:
                 raise Exception("Secret or Data not set")
 
-        # Encrypt the configuration
-        enc_data = JSONSec(data = self.config).enc_json
-        print(repr(enc_data['data']))
-        enc_data = json.dumps(enc_data)
-
+        try:
+            # Encrypt the configuration
+            enc_data = JSONSec(data=self.config).enc_json
+            enc_data = json.dumps(enc_data)
+        
+        except Exception as e:
+            print(f"Unable to encrypt configuration: {e}")
+            raise
+            
         # write file
-        f = open(self.config_path, "w")
-        f.write(enc_data)
-        f.close()
+        with open(self.config_path, "w") as f:
+            f.write(enc_data)
+            f.close()
         
     def _owt_check_download(self):
         # make directories if needed
@@ -176,31 +249,51 @@ class OWTSession:
     # Configuration Methods
     # ---------------------
                     
-    def config_get(self, key, account : str = 'default'):
-        account_config = self.config.get(account, None)
-        if account_config == None:
-            raise Exception(f"Account {account} not found in config file.")
-        return account_config.get(key, None)
+    def config_get(self, key):
+        return self.config.get(key, None)
+        # account_config = self.config.get(account, None)
+        # if account_config == None:
+        #     raise Exception(f"Account {account} not found in config file.")
 
-    def config_set(self, key, value, account : str = 'default'):
+    def config_set(self, key, value):
+        
+        # Sets the key/velua pair
         self.config[key] = value
+        
         # update config file
         self._owt_write_config()
+        
+        # account_config = self.config.get(account, None)
+        # if account_config == None:
+        #     raise Exception(f"Account {account} not found in config file.")
+        # account_config[key] = value
 
         if self.verbose:
             click.echo(f"  config[{key}] = {value}", file=sys.stderr)
 
     def config_print(self):
-        for account, account_config in self.config.items():
-            click.echo(f"Account: {account}", file=sys.stderr)
-            for key, value in account_config.items():
+        try:
+            for key, value in self.config.items():
                 click.echo(f"> config[{key}] = {value}", file=sys.stderr)
+        except Exception as e:
+            # No issues with empty configs
+            click.echo(f"Unable to print config file: {e}", file=sys.stderr, err=True, color=True)
+            
+            pass
 
     def get_service_url(self):
-        scheme = self.config.get("scheme", OWTConfig.SCHEMA_DEFAULT.value)
-        host = self.config.get("host", OWTConfig.URL_DEFAULT.value)
-        port = self.config.get("port", OWTConfig.PORT_DEFAULT.value)
-        release = self.config.get("release", OWTConfig.API_VERSION.value)
+        """Returns the service URL for the API request."""
+        
+        # Get the account config
+        json_config = self.config
+        
+        # Build the URL using the account config
+        scheme = json_config.get("scheme", OWT_CONFIG.get('SCHEMA_DEFAULT', 'https'))
+        host = json_config.get("host", OWT_CONFIG.get('URL_DEFAULT', '127.0.0.1'))
+        port = json_config.get("port", OWT_CONFIG.get('PORT_DEFAULT', 443))
+        release = json_config.get("release", OWT_CONFIG.get('API_VERSION', 1))
+        
+        # Builds and returns the full URL
         return f"{scheme}://{host}:{port}/api/v{release}"
 
     # ---------------

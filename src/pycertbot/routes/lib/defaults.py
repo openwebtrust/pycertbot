@@ -8,3 +8,11 @@ APP_ROUTES = {
     "register" : "/registration",
     "vault" : "/vault",
 }
+
+OWT_CONFIG = {
+    "API_VERSION": 1,
+    "BASE_API_URL": "api/",
+    "SCHEMA_DEFAULT": "https",
+    "PORT_DEFAULT": 8000,
+    "URL_DEFAULT": "pycertbot.openwebtrust.org",
+}

@@ -1,21 +1,15 @@
-from email.message import EmailMessage
 import os
-from pprint import pprint
 import sys
 import click
 import base64
 
+from pprint import pprint
 from urllib.parse import urlparse
+from email.message import EmailMessage
 
-from .lib import session
-from .lib import tables
-from .lib import timeutil
-from .lib import utils
-from .lib import email_tools
-
-from .lib.defaults import APP_ROUTES
-
-from .lib.message import ApiReplyMessage
+from pycertbot.routes.lib import session, utils, email_tools
+from pycertbot.routes.lib.message import ApiReplyMessage
+from pycertbot.routes.lib.defaults import APP_ROUTES
 
 pass_session = click.make_pass_decorator(session.OWTSession)
 

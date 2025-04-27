@@ -11,11 +11,14 @@ __all__ = [
     'current_date'
 ]
 
-def created_timestamp(created):
-	return datetime.datetime.strptime(created, "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
+def created_timestamp(datestring):
+	return datetime.datetime.strptime(datestring, "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
 
-def created_datetime(created):
-	return datetime.datetime.strptime(created, "%Y-%m-%dT%H:%M:%S.%fZ")
+def created_datetime(datestring):
+	return datetime.datetime.strptime(datestring, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+def generalized_timestamp(datestring):
+    return datetime.datetime.strptime(datestring, "%Y%m%d%H%M%SZ")
 
 def unix_timestamp():
 	return int(time.time())

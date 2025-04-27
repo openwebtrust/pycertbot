@@ -16,18 +16,18 @@
 # Click Import   
 import click
 
-# Session Import
-from .routes.lib import session, config
-
 # API Imports
-from .routes import my
-from .routes import cert
+from pycertbot.routes import account, certificate, config
+
+# Session Import
+from pycertbot.routes.lib.session import OWTSession
+from pycertbot.routes.lib.defaults import OWT_CONFIG
 
 # Sets the Configuration Object
-GlobConfig = session.OWTConfig
+GlobConfig = OWT_CONFIG
 
 # Defines the Session Decorator Object
-pass_session = click.make_pass_decorator(session.OWTSession)
+pass_session = click.make_pass_decorator(OWTSession)
 
 # ==========
 # Entrypoint
@@ -37,32 +37,41 @@ pass_session = click.make_pass_decorator(session.OWTSession)
 @click.pass_context
 def __start__(ctx):
     """PyCertbot Tool."""
-    ctx.obj = session.OWTSession()
-
+    ctx.obj = OWTSession()
 
 # =============
 # Configuration
 # =============
 
-__start__.add_command(config.get_option)
-__start__.add_command(config.set_option)
+@click.group()
+def conf():
+    """Manage settings"""
 
+conf.add_command(config.get_option)
+conf.add_command(config.set_option)
 
-# ==================
-# Account Management
-# ==================
-
-__start__.add_command(my.login)
-__start__.add_command(my.logout)
-__start__.add_command(my.register)
-__start__.add_command(my.remove)
-
+# Adds the conf command to the main entrypoint
+__start__.add_command(conf)
 
 # ======================
 # Certificate Management
 # ======================
 
-__start__.add_command(cert._import)
-__start__.add_command(cert._export)
+@click.group()
+def cert():
+    """Manage certificates"""
 
+cert.add_command(certificate._import)
+cert.add_command(certificate._export)
+
+__start__.add_command(cert)
+
+# ==================
+# Account Management
+# ==================
+
+__start__.add_command(account.login)
+__start__.add_command(account.logout)
+__start__.add_command(account.register)
+__start__.add_command(account.remove)
 

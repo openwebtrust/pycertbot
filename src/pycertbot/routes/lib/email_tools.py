@@ -5,13 +5,11 @@ import smtplib
 from email.message import EmailMessage
 from InquirerPy import prompt
 
-from ..lib import session
-from ..lib import timeutil
-from ..lib import utils
+# PyCertBot Imports
+from pycertbot.routes.lib.session import OWTSession
+from pycertbot.routes.lib import utils, timeutil
 
-Config = session.OWTConfig
-pass_session = click.make_pass_decorator(session.OWTSession)
-locale.setlocale(locale.LC_ALL, 'en_US')
+# pass_session = click.make_pass_decorator(OWTSession)
 
 def send_msg(session,
              from_addr : str = None,
@@ -42,6 +40,9 @@ def send_msg(session,
         
     port = session.config_get("smtp_port")
     user = session.config_get("smtp_user")
+    
+    # Sets the default locale language
+    locale.setlocale(locale.LC_ALL, 'en_US')
 
     # Connect to the server
     if port == 465:

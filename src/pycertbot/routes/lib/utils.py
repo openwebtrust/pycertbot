@@ -13,16 +13,22 @@ from base64 import urlsafe_b64encode as _b64encode, urlsafe_b64decode as _b64dec
 
 import dns.resolver as dns
 
-from ..lib import session
-
-# Uses the session configuration
-Config = session.OWTConfig
-
 # Sets the locale
 locale.setlocale(locale.LC_ALL, 'en_US')
 
-# Session information
-# pass_session = click.make_pass_decorator(session.OWTSession)
+# Exports
+
+__all__ = [
+    'banner',
+    'b64encode',
+    'b64decode',
+    'has_token',
+    'get_registration_token',
+    'currencyUnits',
+    'largeNumber',
+    'formatNumber',
+    'dns_resolve'
+]
 
 def banner(verbose=False):
 	"""Prints the Banner for the CLI Tool.
@@ -40,7 +46,7 @@ def banner(verbose=False):
 
 def b64encode(data):
     if not data:
-        data = Random.get_random_bytes(32)
+        return None
     return _b64encode(data).decode('utf-8')
 
 def b64decode(data):
@@ -49,10 +55,10 @@ def b64decode(data):
     return _b64decode(data).decode('utf-8')
 
 def has_token(session):
-	token = session.config_get(Config.TOKEN)
-	has_token = True if token != None else False
+	token = session.config_get("token")
+	has_token = True if token is not None else False
 	if not has_token:
-		click.echo("Please login to access cloud services.")
+		click.echo("Please login to access services.")
 	return has_token
 
 def get_registration_token(email=None, nonce=None):
