@@ -3,7 +3,8 @@ import click
 import dns.resolver as dns
 
 # PyCertBot Imports
-from pycertbot.routes.lib import session, utils
+from pycertbot.utils import session
+from pycertbot.utils.format import banner
 
 pass_session = click.make_pass_decorator(session.OWTSession)
 
@@ -196,7 +197,7 @@ def set_option(session,
                imap_user: str,
                opt_verbose: bool):
     """Set the Endpoint configuration for the API"""
-    utils.banner(opt_verbose)
+    banner(opt_verbose)
 
     if opt_verbose:
         print(f"Applying Configuration Changes:")
@@ -325,7 +326,7 @@ def set_option(session,
 @pass_session
 def get_option(session, option: str, verbose: bool):
     """Show the configured URL for API endpoint"""
-    utils.banner(verbose)
+    banner(verbose)
     if option:
         if option == "url":
             value = session.get_service_url()

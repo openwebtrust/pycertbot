@@ -13,13 +13,21 @@ from enum import Enum
 
 from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
 
-from pycertbot.routes.lib.crypto import JSONSec, owt_master_secret_is_set, owt_set_master_secret
-from pycertbot.routes.lib.defaults import APP_ROUTES, OWT_CONFIG
+from pycertbot.utils.crypto import JSONSec, owt_master_secret_is_set, owt_set_master_secret
+from pycertbot.utils.defaults import APP_ROUTES, OWT_CONFIG
+from pycertbot.utils.logging import OWT_debug_print
 
 # Exports
 __all__ = [
     'OWTSession',
 ]
+
+def has_token(session):
+	token = session.config_get("token")
+	has_token = True if token is not None else False
+	if not has_token:
+		OWT_debug_print("User attempted to access services without a valid token.")
+	return has_token
 
 class OWTSession:
     """OWT Session Object."""
@@ -55,31 +63,43 @@ class OWTSession:
                 
                 # Checks for the master secret, if not there, let's ask for it
                 if not owt_master_secret_is_set():
+                    print("[2] No master secret found. Please enter a new one.")
                     secret = click.prompt("Enter the master secret", type=str, hide_input=True)
                     owt_set_master_secret(secret)
                     if not secret:
+                        click.echo("Secret or Data not set")
                         raise Exception("Secret or Data not set")
 
-            except:
-                pass
-            
+            except Exception as e:
+                OWT_debug_print(f"Exception while checking master secret: {e}")
+                        
             try:
                 enc_config_json = None
                 with open(self.config_path, "r") as f:
                     enc_config_json = f.read()
                     f.close()
-                
+
+                OWT_debug_print("********** LOADED ENCRYPTED **********")
+                pprint(enc_config_json)
+
                 # Sets the configuration data
-                self.config = JSONSec(enc_json=enc_config_json).data                
+                self.config = JSONSec(enc_json=enc_config_json).data
+
+                OWT_debug_print("********** CONFIG **********")
+                OWT_debug_print(self.config)
+                
                 if not self.config:
                     raise Exception("ERROR: No data found in config file (OWTSession::__init__).")
+                OWT_debug_print("********** ALL GOOD **********")
                 
             except(OSError, IOError):
-                click.echo(f"Unable to read config file: {self.config_path}")    
+                OWT_debug_print(f"Unable to read config file: {self.config_path}")
 
             except(Exception) as e:
-                click.echo(f"Exception while parsing or decrypt config file: {e}")
-                
+                OWT_debug_print(f"Exception while parsing or decrypt config file: {e}")
+
+            OWT_debug_print(f"DEBUG: JSONsec __init__ completed successfully.")
+            
                     # ===============
                     # Private Methods
                     # ===============
@@ -188,6 +208,7 @@ class OWTSession:
 
         # Checks for the master secret, if not there, let's ask for it
         if not owt_master_secret_is_set():
+            print("[1] No master secret found. Please enter a new one.")
             secret = click.prompt("Enter the master secret", type=str, hide_input=True)
             owt_set_master_secret(secret)
             if not secret:

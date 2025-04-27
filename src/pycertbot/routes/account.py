@@ -7,9 +7,10 @@ from pprint import pprint
 from urllib.parse import urlparse
 from email.message import EmailMessage
 
-from pycertbot.routes.lib import session, utils, email_tools
-from pycertbot.routes.lib.message import ApiReplyMessage
-from pycertbot.routes.lib.defaults import APP_ROUTES
+from pycertbot.utils import session, email_tools
+from pycertbot.utils.message import ApiReplyMessage
+from pycertbot.utils.defaults import APP_ROUTES
+from pycertbot.utils import dns
 
 pass_session = click.make_pass_decorator(session.OWTSession)
 
@@ -79,7 +80,7 @@ def register(session, url : str, email : str, smtp_user: str, smtp_pwd : str, se
     recipient = None
     
     # Verbose Output
-    utils.banner(opt_verbose)
+    dns.banner(opt_verbose)
     
     if url == "" or url == None:
         # Retrieves the URLs elements from the config
@@ -143,7 +144,7 @@ def register(session, url : str, email : str, smtp_user: str, smtp_pwd : str, se
                 return
 
     # calculates the token value SHA256(email + nonce)
-    token, nonce = utils.get_registration_token(email, secret)
+    token, nonce = dns.get_registration_token(email, secret)
     if not token or not nonce:
         click.echo(f'\nCannot generate the .\n')
         return
@@ -244,7 +245,7 @@ def register(session, url : str, email : str, smtp_user: str, smtp_pwd : str, se
             smtp_domain = email.split('@')[1]
             session.config_set("smtp_domain", smtp_domain)
         # Resolves the domain
-        smtp_host = utils.dns_resolve(smtp_domain)[0]
+        smtp_host = dns.dns_resolve(smtp_domain)[0]
         
     # Let's send the email
     email_tools.send_msg(session,
@@ -265,7 +266,7 @@ def register(session, url : str, email : str, smtp_user: str, smtp_pwd : str, se
 @pass_session
 def token(session, opt_email, opt_nonce, opt_verbose):
     """Returns the registration token for the given email and secret."""
-    utils.banner(opt_verbose)
+    dns.banner(opt_verbose)
     
     # Checks if the email is provided
     if not opt_email or opt_email == "":
@@ -281,7 +282,7 @@ def token(session, opt_email, opt_nonce, opt_verbose):
             return
     
     # calculates the token value SHA256(email + nonce)
-    digest = utils.get_registration_token(opt_email, opt_nonce)
+    digest = dns.get_registration_token(opt_email, opt_nonce)
     
     # Let's return the calculated value
     if opt_verbose:

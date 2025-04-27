@@ -8,12 +8,10 @@ import dns.resolver as dns
 
 from InquirerPy import prompt
 
-from .lib import session
-from .lib import tables
-from .lib import utils
-from .lib import timeutil
+from pycertbot.utils.session import OWTSession
+from pycertbot.utils.format import banner
 
-pass_session = click.make_pass_decorator(session.OWTSession)
+pass_session = click.make_pass_decorator(OWTSession)
 
 @click.command("export")
 @click.option('-p', '--pwd', type=str, help="Master password (config enc/dec)", required=True, prompt=True)
@@ -24,7 +22,7 @@ pass_session = click.make_pass_decorator(session.OWTSession)
 @pass_session
 def _export(session, pwd : str = None, out : str = None, format : str = None, secret : str = None, opt_verbose: bool = False):
     """Export the Certificate and Private Key"""
-    utils.banner(opt_verbose)
+    banner(opt_verbose)
 
     if opt_verbose:
         print(f"Exporting Certificate and Private Key:")
@@ -52,7 +50,7 @@ def _export(session, pwd : str = None, out : str = None, format : str = None, se
 @pass_session
 def _import(session, pwd : str = None, input : str = None, format : str = None, secret : str = None, opt_verbose: bool = False):
     """Import the Certificate and Private Key"""
-    utils.banner(opt_verbose)
+    banner(opt_verbose)
 
     if opt_verbose:
         print(f"Importing Certificate and Private Key:")

@@ -20,8 +20,8 @@ import click
 from pycertbot.routes import account, certificate, config
 
 # Session Import
-from pycertbot.routes.lib.session import OWTSession
-from pycertbot.routes.lib.defaults import OWT_CONFIG
+from pycertbot.utils.session import OWTSession
+from pycertbot.utils.defaults import OWT_CONFIG
 
 # Sets the Configuration Object
 GlobConfig = OWT_CONFIG

@@ -6,9 +6,10 @@ from email.message import EmailMessage
 from InquirerPy import prompt
 
 # PyCertBot Imports
-from pycertbot.routes.lib.session import OWTSession
-from pycertbot.routes.lib import utils, timeutil
-
+from pycertbot.utils import timeutil
+from pycertbot.utils import dns
+from pycertbot.utils.format import b64encode, b64decode
+from pycertbot.utils.crypto import OWT_random_bytes, OWT_digest_ex
 # pass_session = click.make_pass_decorator(OWTSession)
 
 def send_msg(session,
@@ -36,7 +37,7 @@ def send_msg(session,
             # Look for the domain in the email address
             domain = from_addr.split('@')[1]
         # Get the hostname
-        host = utils.dns_resolve(domain)[0]
+        host = dns.dns_resolve(domain)[0]
         
     port = session.config_get("smtp_port")
     user = session.config_get("smtp_user")
@@ -118,3 +119,34 @@ def send_msg(session,
 
     # all done, log out
     smtp.quit()
+    
+def get_registration_token(email=None, nonce=None):
+    """Generates a Registration Token for the given email address.
+
+    Args:
+        email (str, optional): Email Address. Required.
+        nonce (str, optional): Nonce. Defaults to Rand(32)
+
+    Returns:
+        str: Registration Token
+    """
+    
+    # If no email is provided, we raise an exception
+    if not email:
+        raise Exception("Email Address is required.")
+  
+	# If no nonce is provided, let's generate one
+    if not nonce:
+        b64_nonce = OWT_random_bytes(32, None)
+    else:
+        b64_nonce = b64encode(bytes(nonce, 'utf-8'))
+
+	# calculates the token value SHA256(email + nonce)
+    b64_email = b64encode(bytes(email, 'utf-8'))
+    digest = OWT_digest_ex(data=bytes(b64_email, 'utf-8'), salt=bytes(b64_nonce, 'utf-8'),  pepper=b'OpenWebTrustDomainV1', algorithm='SHA256')
+    
+    # Finalizes the token and nonce
+    b64_token = b64encode(digest)
+    
+    # returns the B64 encoded data
+    return b64_token, b64_nonce

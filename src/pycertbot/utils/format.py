@@ -22,12 +22,9 @@ __all__ = [
     'banner',
     'b64encode',
     'b64decode',
-    'has_token',
-    'get_registration_token',
     'currencyUnits',
     'largeNumber',
     'formatNumber',
-    'dns_resolve'
 ]
 
 def banner(verbose=False):
@@ -53,13 +50,6 @@ def b64decode(data):
     if not data:
         return None
     return _b64decode(data).decode('utf-8')
-
-def has_token(session):
-	token = session.config_get("token")
-	has_token = True if token is not None else False
-	if not has_token:
-		click.echo("Please login to access services.")
-	return has_token
 
 def get_registration_token(email=None, nonce=None):
     """Generates a Registration Token for the given email address.

@@ -11,9 +11,8 @@ from Crypto.Cipher import AES, ChaCha20_Poly1305
 from Crypto.Hash import SHA256, SHA512, SHA3_512, SHA3_256, SHAKE256
 from Crypto.Protocol import KDF
 
-# from base64 import b64encode, b64decode
-# from pycertbot.routes.lib.utils import b64encode, b64decode
 from base64 import urlsafe_b64encode as b64encode, urlsafe_b64decode as b64decode
+from pycertbot.utils.logging import OWT_debug_print
 
 # Master Secret
 MasterSecret = None
@@ -22,7 +21,7 @@ MasterSecret = None
 
 __all__ = [
 	'JSONSec',
-	'owt_random_bytes',
+	'OWT_random_bytes',
 	'owt_set_master_secret',
     'owt_master_secret_is_set'
 ]
@@ -39,7 +38,7 @@ ALG_CHACHA_POLY = 'ChaCha20_Poly1305'
 # Implementation
 # ==============
 
-def owt_random_bytes(length=64, encoding : Literal['hex', 'utf-8', None] = None) -> (bytes | str):
+def OWT_random_bytes(length=64, encoding : Literal['hex', 'utf-8', None] = None) -> (bytes | str):
 	"""Generates random bytes
 
 	Args:
@@ -82,7 +81,28 @@ def owt_master_secret_is_set() -> bool:
 	"""
 	return bool(MasterSecret)
 
-def owt_hkdf(secret, domain, len=32):
+def OWT_kdf_bcrypt_derive(secret, domain, len=32, cost : int = 24):
+    """Derives a key from the secret using HKDF
+    This function uses bcrypt to derive the key and SHA3_512 to generate the final key.
+    The domain is used to derive the key and is set to 'OpenWebTrust2025' by default.
+    The length of the key can be set to a maximum of 64 bytes.
+    The default length is 32 bytes.
+    
+    The function raises a ValueError if the length is greater than 64 bytes.
+    The function returns the derived key.
+
+    Args:
+        secret (bytes): The secret to derive the key from.
+        domain (bytes): The domain to use for key derivation.
+        len (int, optional): The length of the derived key. Defaults to 32.
+        cost (int, optional): The cost factor for bcrypt. Suggested min is 12 (def. 24).
+        
+    Raises:
+        ValueError: If the length is greater than 64 bytes.
+
+    Returns:
+        bytes: The derived key.
+    """
     
     # We support returning secrets up to 64 bytes
     if len > 64:
@@ -93,11 +113,7 @@ def owt_hkdf(secret, domain, len=32):
         domain = b'OpenWebTrust2025'
     
     # Use bcrypt to derive the encryption key
-    derived_key = KDF.bcrypt(secret, 12, domain)
-      
-    # # Generates a key from the secret
-    # key_seed = SHA3_512.new(secret).digest()
-    # # key_seed = SHA3_512.new(domain).update(secret).digest()
+    derived_key = KDF.bcrypt(secret, cost, domain)
     
     # Use SHA3_512 to derive the encryption key
     enc_key = SHA3_512.new(derived_key + domain).digest()[:len]
@@ -105,7 +121,18 @@ def owt_hkdf(secret, domain, len=32):
     # Returns the derived key
     return enc_key
 
-def owt_hash_ex(data, algorithm = 'SHA3_512', salt = None, pepper = None ):
+def OWT_digest_ex(data, algorithm = 'SHA3_512', salt = None, pepper = None ):
+    """Generates a hash from the data, salt, and pepper
+
+    Args:
+        data (str): The data to be hashed
+        algorithm (str, optional): The hashing algorithm to use. Defaults to 'SHA3_512'.
+        salt (bytes, optional): The salt to be used. Defaults to None.
+        pepper (bytes, optional): The pepper to be used. Defaults to None.
+
+    Returns:
+        bytes: The generated hash
+    """
     
     if not data:
         return None
@@ -134,13 +161,33 @@ def owt_hash_ex(data, algorithm = 'SHA3_512', salt = None, pepper = None ):
     hash.update(pepper)
     return hash.digest()
 
-def owt_hash(data, salt = None, pepper = None):
+def OWT_hash(data, salt = None, pepper = None):
+    """Generates a hash from the data, salt, and pepper
+    Args:
+        data (str): The data to be hashed
+        salt (str, optional): The salt to be used. Defaults to None.
+        pepper (str, optional): The pepper to be used. Defaults to None.
+    Returns:
+        str: The generated hash
+    """
     # Generates a key from the secret
     algorithm = 'SHA3_512'
-    return owt_hash_ex(data, algorithm, salt, pepper)
+    return OWT_digest_ex(data, algorithm, salt, pepper)
 
 class JSONSec():
-    """JSONSec is a class that provides a simple way to encrypt and decrypt JSON data."""
+    """Class to handle JSON Encryption and Decryption
+    
+    This class uses AES and ChaCha20_Poly1305 for encryption and decryption.
+    The built in KDF function for key derivation uses bcrypt and SHA3_512 for
+    better diffusion and expansion.
+    
+    The class is meant to be used to encrypt and decrypt JSON data by using
+    symmetric encryption algorithms. The default algorithm is AES, but ChaCha20_Poly1305
+    is also supported.
+    
+    The AES algorithm supportess GCM, SIV, and CBC modes of operation.
+    The ChaCha20_Poly1305 algorithm supports GCM mode of operation.
+    """
 
     def __init__(self,
                  data : str = None, 
@@ -152,20 +199,22 @@ class JSONSec():
 				 nonce : bytes = None,
 				 iv : bytes = None,
                  enc_json : dict = None,
-                 session = None):
+                 session : object = None):
         """Initializes the JSONSec Object
 
 		Args:
 			data (dict, optional): The data to be encrypted. Defaults to None.
-			enc_data (dict, optional): The data to be decrypted. Defaults to None.
+			enc_data (dict, optional): The encrypted data to be used by the instance. Defaults to None.
 			secret (bytes, optional): The secret key to be used for encryption/decryption. Defaults to None.
-			algorithm (str, optional): Defaults to 'AES' | 'ChaCha20_Poly1305' | 'XChaCha20_Poly1305'.
-			mode (str, optional): _description_. Defaults to AES.MODE_SIV | AES.MODE_GCM | None.
-			nonce (bytes, optional): _description_. Defaults to None.
-			iv (bytes, optional): _description_. Defaults to None.
+			algorithm (str, optional): The encryption algorithm (one of 'AES' | 'ChaCha20_Poly1305' | 'XChaCha20_Poly1305').
+			encryption_mode (int, optional): The mode of operation for the encryption algorithm. Defaults to AES.MODE_GCM.
+			nonce (bytes, optional): The nonce for encryption used in AEAD modes. Defaults to None.
+			iv (bytes, optional): The initialization vector for encryption for AES in CBC. Defaults to None.
+			tag (bytes, optional): The tag for authentication used in AEAD modes (e.g., GCM, SIV, or Poly). Defaults to None.
+			session (optional): The session information. Defaults to None.
 
 		Raises:
-			ValueError: _description_
+			ValueError: If both data and enc_data are provided or if both data and enc_json are provided.
 		"""
 		# Only one between data and enc data can be passed
         if (data and enc_data) or ((data or enc_data) and enc_json):
@@ -187,11 +236,14 @@ class JSONSec():
         if enc_json is not None:
             try:
 
+                OWT_debug_print(f"DEBUG: enc_json: {enc_json}")
                 # Parses the JSON data if the input is a string
                 parsed_enc_json = enc_json
                 if isinstance(enc_json, str):
                     parsed_enc_json = json.loads(enc_json)
         
+                OWT_debug_print(f"DEBUG: parsed_enc_json: {parsed_enc_json}")
+                
                 # Gets the values from the JSON data
                 self.__algorithm__ = parsed_enc_json.get('algorithm', ALG_AES)
                 self.__mode__ = parsed_enc_json.get('encryption-mode', AES.MODE_GCM)
@@ -228,34 +280,40 @@ class JSONSec():
                 print(f"Error: Cannot decode the encrypted JSON: {e}")
                 raise ValueError(f"Invalid JSON: {e}")
 
+        OWT_debug_print(f"Init Progressing...")
+
 		# If no IV is passed, we generate a random one
         if not self.__iv__:
             # AES Encryption
             if self.__algorithm__ == ALG_AES:
-                self.__iv__ = owt_random_bytes(16)
+                self.__iv__ = OWT_random_bytes(16)
             # ChaCha20 Poly1305 Encryption
             elif self.__algorithm__ == ALG_CHACHA_POLY:
-                self.__iv__ = owt_random_bytes(12)
+                self.__iv__ = OWT_random_bytes(12)
 
         if not self.__nonce__:
             # AES Encryption
             if self.__algorithm__ == ALG_AES:
                 if self.__mode__ in [ AES.MODE_SIV, AES.MODE_GCM ]:
-                    self.__nonce__ = owt_random_bytes(16)
+                    self.__nonce__ = OWT_random_bytes(16)
                 elif self.__mode__ == AES.MODE_CBC:
-                    self.__iv__ = owt_random_bytes(16)
+                    self.__iv__ = OWT_random_bytes(16)
             # ChaCha20 Poly1305 Encryption
             elif self.__algorithm__ == ALG_CHACHA_POLY:
-                self.__nonce__ = owt_random_bytes(12)
+                self.__nonce__ = OWT_random_bytes(12)
+
+        OWT_debug_print(f"Init Progressing...")
 
         # Encrypts the data, if any was passed
         if data is not None:
             self.__enc_data__ = self._encrypt(data)
-            
+        
+        OWT_debug_print(f"Init Successful.")
+        
     
     def _hkdf(self, secret, len=32):
         # Use the general HKDF function with set domain for derivation
-        return owt_hkdf(secret, b'OpenWebTrust2025', len)
+        return OWT_kdf_bcrypt_derive(secret, b'OpenWebTrust2025', len)
 
     
     def _encrypt(self, data):
